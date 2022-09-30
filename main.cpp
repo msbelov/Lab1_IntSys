@@ -60,52 +60,45 @@ public:
     }
 };
 
-class AStar
-{
+class AStar {
 public:
-    Result find_path(Node start, Node goal, Map grid, std::string metrictype="Octile", int connections=8, double hweight=1)
-    {
-        //TODO - implement the main cycle of AStar algorithm
+    Result find_path(Node start, Node goal, Map grid, std::string metrictype="Octile", int connections=4, double hweight=1) {
         auto time_now = std::chrono::high_resolution_clock::now();
         Result result;
         int steps = 0;
         start.g = 0;
-        start.h=count_h_value(start, goal,metrictype, hweight);
-        start.f = start.g + hweight * start.h;
         std::list<Node> OPEN;
         OPEN.push_back(start);
         std::set<Node> CLOSED;
         CLOSED.insert(start);
         bool pathfound = false;
-        while (!OPEN.empty() && !pathfound)
-        {
-            OPEN.sort([](const Node & a, const Node &b){
-                if(a.f==b.f)
-                    return a < b;
-                return a.f < b.f;
-            });
+        while(!OPEN.empty() && !pathfound) {
             Node current = OPEN.front();
-            OPEN.pop_front();
+
+            for (auto n: OPEN) {
+                if (n.f < current.f)
+                    current = n;
+            }
+            OPEN.remove(current);
             steps++;
-            auto neighbors = grid.get_neighbors(current,connections);
+            auto neighbors = grid.get_neighbors(current, connections);
+            CLOSED.insert(current);
             for (auto n: neighbors) {
-                bool found = (CLOSED.find(n) != CLOSED.end());
-                Node fn = *(CLOSED.find(n));
-                n.h = count_h_value(n, goal,metrictype, hweight);
-                n.g = current.g + 1;
-                n.f = n.g + hweight * n.h;
-                if (!found || n.g < fn.g)
-                {
-                    OPEN.push_back(n);
+                if (CLOSED.find(n) == CLOSED.end()) {
+                    if (n.i != current.i && n.j != current.j) // перемещение по диагонали =>
+                        n.g = current.g + sqrt(2);            // => добавляем корень из 2
+                    else
+                        n.g = current.g + 1;
+                    n.h = hweight * count_h_value(n, goal, metrictype, hweight);
+                    n.f = n.g + n.h;
                     n.parent = &(*CLOSED.find(current));
-                    CLOSED.erase(fn);
-                    CLOSED.insert(n);
-                }
-                if (n == goal) {
-                    result.path = reconstruct_path(n);
-                    result.cost = n.g;
-                    pathfound = true;
-                    break;
+                    OPEN.push_back(n);
+                    if (n == goal) {
+                        result.path = reconstruct_path(n);
+                        result.cost = n.g;
+                        pathfound = true;
+                        break;
+                    }
                 }
             }
         }
